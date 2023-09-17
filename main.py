@@ -47,21 +47,25 @@ async def ask_question(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     question = current_test['questions'][question_index]
     
-    keyboard = [
-        [InlineKeyboardButton(answer['answer_text'], callback_data=str(answer['points']))]
-        for answer in question['answers']
-    ]    
+    keyboard = [[
+        InlineKeyboardButton(index, callback_data=str(answer['points']))
+        for index, answer in enumerate(question['answers'], start=1)   
+    ]]    
     
+    text = f"Запитання {question_index + 1}. {question['question_text']} Оберіть вашу відповідь:"
+    for index, answer in enumerate(question['answers'], start=1):
+        text += f"\n{index}. {answer['answer_text']}"
+
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     if 'question_message_id' in context.user_data:
         await update.callback_query.edit_message_text(
-            text=f"Запитання {question_index + 1}. {question['question_text']} Оберіть вашу відповідь:",
+            text=text,
             reply_markup=reply_markup
         )
     else:
         message = await update.callback_query.message.reply_text(
-            text=f"Запитання {question_index + 1}. {question['question_text']} Оберіть вашу відповідь:",
+            text=text,
             reply_markup=reply_markup
         )
         context.user_data['question_message_id'] = message.message_id

@@ -7,10 +7,11 @@ class DataBase:
 	def __init__(self):
 		cluster = MongoClient(os.getenv('MONGO_DB_URL'))
 
-		self.db = cluster["Psychological-test-bot"]
+		self.db = cluster[os.getenv('MONGO_DB_CLUSTER_NAME')]
 		self.users = self.db["Users"]
 		self.tests = self.db["Tests"]
-
+		print(self.db)
+		print(self.tests)
 		self.tests_count = len(list(self.tests.find({})))
 		
 	def get_user(self, message):

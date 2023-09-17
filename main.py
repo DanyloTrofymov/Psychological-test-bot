@@ -43,6 +43,7 @@ async def ask_question(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if question_index >= len(current_test['questions']):
         await finish_test(update, context)
+        return
     
     question = current_test['questions'][question_index]
     
@@ -67,7 +68,7 @@ async def ask_question(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def answer_question(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    query.answer()
+    await query.answer()
     
     points = int(query.data)
     
@@ -128,7 +129,8 @@ async def results_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 def error(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    print(f'Update {update} caused error {context.error}')
+    pass
+    # print(f'Update {update} caused error {context.error}')
 
 
 def main():

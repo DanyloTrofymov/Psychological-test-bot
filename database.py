@@ -7,10 +7,10 @@ class DataBase:
 	def __init__(self):
 		cluster = MongoClient(os.getenv('MONGO_DB_URL'))
 
-		self.db = cluster["Psychological-test-bot"]
+		self.db = cluster[os.getenv('MONGO_DB_CLUSTER_NAME')]
 		self.users = self.db["Users"]
 		self.tests = self.db["Tests"]
-
+		self.results = self.db["Results"]
 		self.tests_count = len(list(self.tests.find({})))
 		
 	def get_user(self, message):
@@ -21,7 +21,6 @@ class DataBase:
 		
 		user = {
 			"user_id": message.chat.id,
-			"username": message.chat.username,
             "test_results": []
 		}
 
@@ -39,42 +38,45 @@ class DataBase:
 		return self.tests.find_one({"test_id": test_id})
 
 	def add_test_result(self, message, test_id, result):
-		user = self.get_user(message)
-		user['test_results'].append({
-            "test_id": test_id,
-            "result": result
-        })
+		test = self.users.find_one({"user_id": message.chat.id, "test_results.test_id": test_id})
 
-		self.set_user(message, user)
+		if test is None:
+			user = self.get_user(message)
+			user['test_results'].append({
+				"test_id": test_id,
+				"result": result
+			})
+			self.set_user(message, user)
+		else:
+			filter = {"user_id": message.chat.id, "test_results.test_id": test_id}
+			update = {"$set": {"test_results.$.result": result}}
+			self.users.update_one(filter, update)
+		
+		self.results.insert_one({
+				"test_id": test_id,
+				"result": result
+			})
+		
+
 		
 	def get_latest_test_results(self, message):
 		user = self.get_user(message)
 		latest_results = []
 		for j in range(1, self.tests_count + 1):
-			found = False
-			for i in range(user['test_results'].__len__(), 0, -1):
+			for i in user['test_results']:
 				result = None
-				if(user['test_results'][i - 1]['test_id'] == j):
-					if('test_results' in user):
-						score = user['test_results'][i - 1]['result']
-						for score_range, outcome in self.get_test_by_id(j)['result'].items():
-							min_score, max_score = map(int, score_range.split('-'))
-							if min_score <= score <= max_score:
-								result = outcome
-								break
-					found = True
-					latest_results.append({
-                        "test_name": self.get_test_by_id(j)['test_name'],
-						"total_points": self.get_test_by_id(j)['total_points'],
-						"score": score,
-                        "result": result 
-					})
-					break
-			if(not found):
-				latest_results.append({
-                    "test_name": self.get_test_by_id(j)['test_name'],
-                    "result": None
-                })
+				score = i['result']
+				for score_range, outcome in self.get_test_by_id(j)['result'].items():
+					min_score, max_score = map(int, score_range.split('-'))
+					if min_score <= score <= max_score:
+						result = outcome
+						break
+			latest_results.append({
+                "test_name": self.get_test_by_id(j)['test_name'],
+				"total_points": self.get_test_by_id(j)['total_points'],
+				"score": score,
+                "result": result 
+			})
 
 
 		return latest_results

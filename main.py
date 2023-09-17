@@ -2,6 +2,7 @@ import os
 from dotenv import load_dotenv
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, filters, ContextTypes, MessageHandler, CallbackQueryHandler
+from telegram.constants import ParseMode
 from database import DataBase
 load_dotenv()
 db = DataBase()
@@ -47,21 +48,25 @@ async def ask_question(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     question = current_test['questions'][question_index]
     
-    keyboard = [
-        [InlineKeyboardButton(answer['answer_text'], callback_data=str(answer['points']))]
-        for answer in question['answers']
-    ]    
+    keyboard = [[
+        InlineKeyboardButton(index, callback_data=str(answer['points']))
+        for index, answer in enumerate(question['answers'], start=1)   
+    ]]    
     
+    text = f"Запитання {question_index + 1}. {question['question_text']} Оберіть вашу відповідь:"
+    for index, answer in enumerate(question['answers'], start=1):
+        text += f"\n{index}. {answer['answer_text']}"
+
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     if 'question_message_id' in context.user_data:
         await update.callback_query.edit_message_text(
-            text=f"Запитання {question_index + 1}. {question['question_text']} Оберіть вашу відповідь:",
+            text=text,
             reply_markup=reply_markup
         )
     else:
         message = await update.callback_query.message.reply_text(
-            text=f"Запитання {question_index + 1}. {question['question_text']} Оберіть вашу відповідь:",
+            text=text,
             reply_markup=reply_markup
         )
         context.user_data['question_message_id'] = message.message_id
@@ -118,19 +123,18 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
 
 async def results_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     latest_results = db.get_latest_test_results(update.message)  
+    if latest_results == []:
+        await update.message.reply_text("Ви ще не проходили жодного тесту.")
+        return
     results_message = "Останні результати тестів:\n"
     for result in latest_results:
-        if result['result'] is not None:
-            results_message += f"{result['test_name']}: {result['score']} балів з {result['total_points']}. {result['result']}\n"
-        else:
-            results_message += f"{result['test_name']}: Ви ще не пройшли цей тест.\n"
+        results_message += f"_{result['test_name']}:_ {result['score']} балів з {result['total_points']}. {result['result']}\n"
 
-    await update.message.reply_text(results_message)
+    await update.message.reply_text(results_message, parse_mode=ParseMode.MARKDOWN)
 
 
 def error(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    pass
-    # print(f'Update {update} caused error {context.error}')
+    print(f'Update {update} caused error {context.error}')
 
 
 def main():

@@ -54,7 +54,7 @@ class DataBase:
 			self.users.update_one(filter, update)
 		
 		self.results.insert_one({
-				"_id": _id,
+				"test_id": _id,
 				"result": result,
 				"date": date.today().strftime("%Y.%m.%d")
 			})

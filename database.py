@@ -1,5 +1,6 @@
 from pymongo import MongoClient
 import os
+from datetime import date
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -54,7 +55,8 @@ class DataBase:
 		
 		self.results.insert_one({
 				"_id": _id,
-				"result": result
+				"result": result,
+				"date": date.today().strftime("%Y.%m.%d")
 			})
 		
 

@@ -71,12 +71,12 @@ class DataBase:
 					if min_score <= score <= max_score:
 						result = outcome
 						break
-			latest_results.append({
-                "test_name": self.get_test_by_id(j)['test_name'],
-				"total_points": self.get_test_by_id(j)['total_points'],
-				"score": score,
-                "result": result 
-			})
+				latest_results.append({
+					"test_name": self.get_test_by_id(j)['test_name'],
+					"total_points": self.get_test_by_id(j)['total_points'],
+					"score": score,
+					"result": result 
+					})
 
 
 		return latest_results

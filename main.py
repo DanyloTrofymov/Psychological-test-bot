@@ -12,10 +12,11 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await test_command(update, context)
 
 async def test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    clear_context(context)
     tests = db.get_all_tests()
 
     keyboard = [
-        [InlineKeyboardButton(test['test_name'], callback_data=str(test['test_id']))]
+        [InlineKeyboardButton(f'{test["test_name"]}({question_inflection(test["questions"].__len__())})', callback_data=str(test['test_id']))]
         for test in tests
     ]
 
@@ -53,7 +54,7 @@ async def ask_question(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for index, answer in enumerate(question['answers'], start=1)   
     ]]    
     
-    text = f"Запитання {question_index + 1}. {question['question_text']} Оберіть вашу відповідь:"
+    text = f"Запитання {question_index + 1} з {current_test['questions'].__len__()}. {question['question_text']} Оберіть вашу відповідь:"
     for index, answer in enumerate(question['answers'], start=1):
         text += f"\n{index}. {answer['answer_text']}"
 
@@ -101,16 +102,12 @@ async def finish_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await update.callback_query.message.reply_text(f"Ваш результат: {total_points} балів з {current_test['total_points']}.\n{result}.")
     
-    del context.user_data['current_test']
-    del context.user_data['current_question_index']
-    del context.user_data['total_points']
+    clear_context(context)
     
 
 async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Тест сказовано.")
-    del context.user_data['current_test']
-    del context.user_data['current_question_index']
-    del context.user_data['total_points']
+    clear_context(context)
+    await update.message.reply_text("Тест скаcовано.")
 
 async def handle_response(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text('Будь ласка, використовуйте кнопки для відповіді на запитання.')
@@ -136,6 +133,25 @@ async def results_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def error(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f'Update {update} caused error {context.error}')
 
+def clear_context(context: ContextTypes.DEFAULT_TYPE):
+    if 'current_test' in context.user_data:
+        del context.user_data['current_test']
+    if 'current_question_index' in context.user_data :
+        del context.user_data['current_question_index']
+    if 'total_points' in context.user_data :
+        del context.user_data['total_points']
+    
+
+def question_inflection(count):
+    last_digit = count % 10
+    last_two_digits = count % 100
+
+    if last_two_digits in [11, 12, 13, 14]:
+        return f"{count} запитань"
+    elif last_digit in [1, 2, 3, 4]:
+        return f"{count} запитаня"
+    else:
+        return f"{count} запитань"
 
 def main():
     print('Starting bot')

@@ -16,7 +16,7 @@ async def test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tests = db.get_all_tests()
 
     keyboard = [
-        [InlineKeyboardButton(f'{test["test_name"]}({question_inflection(test["questions"].__len__())})', callback_data=str(test['test_id']))]
+        [InlineKeyboardButton(f'{test["test_name"]}({question_inflection(test["questions"].__len__())})', callback_data=str(test['_id']))]
         for test in tests
     ]
 
@@ -98,7 +98,7 @@ async def finish_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
             result = outcome
             break
     
-    db.add_test_result(update.callback_query.message, current_test['test_id'], total_points)
+    db.add_test_result(update.callback_query.message, current_test['_id'], total_points)
     
     await update.callback_query.message.reply_text(f"Ваш результат: {total_points} балів з {current_test['total_points']}.\n{result}.")
     

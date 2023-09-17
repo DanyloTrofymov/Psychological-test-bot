@@ -9,13 +9,18 @@ client = pymongo.MongoClient(os.getenv('MONGO_DB_URL'))
 db = client["Psychological-test-bot"]
 collection = db["Tests"] 
 
+question_id = 0
+def set_question_id():
+  global question_id
+  question_id += 1
+  return question_id
 
 document = {
-  "test_id": 1,
+  "_id": collection.count_documents({}) + 1,
   "test_name": "Algebra Test",
   "questions": [
     {
-      "question_id": 1,
+      "question_id": set_question_id(),
       "question_text": "Solve for x: 2x + 5 = 12",
       "answers": [
         {"answer_id": 1, "answer_text": "3", "points": 5},

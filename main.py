@@ -107,7 +107,7 @@ async def finish_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     clear_context(context)
-    await update.message.reply_text("Тест сказовано.")
+    await update.message.reply_text("Тест скаcовано.")
 
 async def handle_response(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text('Будь ласка, використовуйте кнопки для відповіді на запитання.')

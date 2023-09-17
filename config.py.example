@@ -1,4 +1,0 @@
-from typing import Final
-
-BOT_TOKEN: Final="123456789:ABCdefghIJKlmnOPQrstuVWXyz"
-MONGO_DB_URL: Final="mongodb://localhost:27017/"

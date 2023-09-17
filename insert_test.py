@@ -1,7 +1,9 @@
 import pymongo
-import config
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
-client = pymongo.MongoClient(config.MONGO_DB_URL)  
+client = pymongo.MongoClient(os.getenv('MONGO_DB_URL'))  
 
 
 db = client["Psychological-test-bot"]

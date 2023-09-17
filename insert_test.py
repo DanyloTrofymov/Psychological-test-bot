@@ -11,12 +11,12 @@ collection = db["Tests"]
 
 question_id = 0
 def set_question_id():
-    global question_id
-    question_id += 1
-    return question_id
+  global question_id
+  question_id += 1
+  return question_id
 
 document = {
-  "test_id": collection.__len__(),
+  "_id": collection.count_documents({}) + 1,
   "test_name": "Algebra Test",
   "questions": [
     {

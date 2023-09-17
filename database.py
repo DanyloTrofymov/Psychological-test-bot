@@ -14,13 +14,13 @@ class DataBase:
 		self.tests_count = len(list(self.tests.find({})))
 		
 	def get_user(self, message):
-		user = self.users.find_one({"user_id": message.chat.id})
+		user = self.users.find_one({"_id": message.chat.id})
 
 		if user is not None:
 			return user
 		
 		user = {
-			"user_id": message.chat.id,
+			"_id": message.chat.id,
             "test_results": []
 		}
 
@@ -29,31 +29,31 @@ class DataBase:
 		return user
 	
 	def set_user(self, message, update):
-		self.users.update_one({"user_id": message.chat.id}, {"$set": update})
+		self.users.update_one({"_id": message.chat.id}, {"$set": update})
 	
 	def get_all_tests(self):
 		return self.tests.find({})
 	
-	def get_test_by_id(self, test_id):
-		return self.tests.find_one({"test_id": test_id})
+	def get_test_by_id(self, _id):
+		return self.tests.find_one({"_id": _id})
 
-	def add_test_result(self, message, test_id, result):
-		test = self.users.find_one({"user_id": message.chat.id, "test_results.test_id": test_id})
+	def add_test_result(self, message, _id, result):
+		test = self.users.find_one({"_id": message.chat.id, "test_results._id": _id})
 
 		if test is None:
 			user = self.get_user(message)
 			user['test_results'].append({
-				"test_id": test_id,
+				"_id": _id,
 				"result": result
 			})
 			self.set_user(message, user)
 		else:
-			filter = {"user_id": message.chat.id, "test_results.test_id": test_id}
+			filter = {"_id": message.chat.id, "test_results._id": _id}
 			update = {"$set": {"test_results.$.result": result}}
 			self.users.update_one(filter, update)
 		
 		self.results.insert_one({
-				"test_id": test_id,
+				"_id": _id,
 				"result": result
 			})
 		

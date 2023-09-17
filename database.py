@@ -52,13 +52,11 @@ class DataBase:
 		latest_results = []
 		for j in range(1, self.tests_count + 1):
 			found = False
-			for i in range(user['test_results'].__len__(), 1, -1):
+			for i in range(user['test_results'].__len__(), 0, -1):
 				result = None
 				if(user['test_results'][i - 1]['test_id'] == j):
-					print(user['test_results'])
 					if('test_results' in user):
 						score = user['test_results'][i - 1]['result']
-						print(score)
 						for score_range, outcome in self.get_test_by_id(j)['result'].items():
 							min_score, max_score = map(int, score_range.split('-'))
 							if min_score <= score <= max_score:

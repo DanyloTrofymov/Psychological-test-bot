@@ -12,6 +12,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await test_command(update, context)
 
 async def test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    clear_context(context)
     tests = db.get_all_tests()
 
     keyboard = [
@@ -101,16 +102,12 @@ async def finish_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await update.callback_query.message.reply_text(f"Ваш результат: {total_points} балів з {current_test['total_points']}.\n{result}.")
     
-    del context.user_data['current_test']
-    del context.user_data['current_question_index']
-    del context.user_data['total_points']
+    clear_context(context)
     
 
 async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    clear_context(context)
     await update.message.reply_text("Тест сказовано.")
-    del context.user_data['current_test']
-    del context.user_data['current_question_index']
-    del context.user_data['total_points']
 
 async def handle_response(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text('Будь ласка, використовуйте кнопки для відповіді на запитання.')
@@ -136,7 +133,11 @@ async def results_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def error(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f'Update {update} caused error {context.error}')
 
-
+def clear_context(context: ContextTypes.DEFAULT_TYPE):
+    del context.user_data['current_test']
+    del context.user_data['current_question_index']
+    del context.user_data['total_points']
+    
 def main():
     print('Starting bot')
     app = Application.builder().token(os.getenv('BOT_TOKEN')).build()

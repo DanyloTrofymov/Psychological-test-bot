@@ -119,7 +119,10 @@ async def results_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     latest_results = db.get_latest_test_results(update.message)  
     results_message = "Останні результати тестів:\n"
     for result in latest_results:
-        results_message += f"{result['test_name']}: {result['result']}\n"
+        if result['result'] is not None:
+            results_message += f"{result['test_name']}: {result['score']} балів з {result['total_points']}. {result['result']}\n"
+        else:
+            results_message += f"{result['test_name']}: Ви ще не пройшли цей тест.\n"
 
     await update.message.reply_text(results_message)
 

@@ -67,13 +67,15 @@ class DataBase:
 					found = True
 					latest_results.append({
                         "test_name": self.get_test_by_id(j)['test_name'],
+						"total_points": self.get_test_by_id(j)['total_points'],
+						"score": score,
                         "result": result 
 					})
 					break
 			if(not found):
 				latest_results.append({
                     "test_name": self.get_test_by_id(j)['test_name'],
-                    "result": "Ви ще не пройшли цей тест."
+                    "result": None
                 })
 
 

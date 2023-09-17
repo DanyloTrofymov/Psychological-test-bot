@@ -16,7 +16,7 @@ async def test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tests = db.get_all_tests()
 
     keyboard = [
-        [InlineKeyboardButton(test['test_name'], callback_data=str(test['test_id']))]
+        [InlineKeyboardButton(f'{test["test_name"]}({question_inflection(test["questions"].__len__())})', callback_data=str(test['test_id']))]
         for test in tests
     ]
 
@@ -141,6 +141,18 @@ def clear_context(context: ContextTypes.DEFAULT_TYPE):
     if 'total_points' in context.user_data :
         del context.user_data['total_points']
     
+
+def question_inflection(count):
+    last_digit = count % 10
+    last_two_digits = count % 100
+
+    if last_two_digits in [11, 12, 13, 14]:
+        return f"{count} запитань"
+    elif last_digit in [1, 2, 3, 4]:
+        return f"{count} запитаня"
+    else:
+        return f"{count} запитань"
+
 def main():
     print('Starting bot')
     app = Application.builder().token(os.getenv('BOT_TOKEN')).build()

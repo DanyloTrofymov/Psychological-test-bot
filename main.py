@@ -54,7 +54,7 @@ async def ask_question(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for index, answer in enumerate(question['answers'], start=1)   
     ]]    
     
-    text = f"Запитання {question_index + 1}. {question['question_text']} Оберіть вашу відповідь:"
+    text = f"Запитання {question_index + 1} з {current_test['questions'].__len__()}. {question['question_text']} Оберіть вашу відповідь:"
     for index, answer in enumerate(question['answers'], start=1):
         text += f"\n{index}. {answer['answer_text']}"
 
@@ -134,9 +134,12 @@ def error(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f'Update {update} caused error {context.error}')
 
 def clear_context(context: ContextTypes.DEFAULT_TYPE):
-    del context.user_data['current_test']
-    del context.user_data['current_question_index']
-    del context.user_data['total_points']
+    if 'current_test' in context.user_data:
+        del context.user_data['current_test']
+    if 'current_question_index' in context.user_data :
+        del context.user_data['current_question_index']
+    if 'total_points' in context.user_data :
+        del context.user_data['total_points']
     
 def main():
     print('Starting bot')

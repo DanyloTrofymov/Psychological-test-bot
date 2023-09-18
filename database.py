@@ -65,21 +65,23 @@ class DataBase:
 	def get_latest_test_results(self, message):
 		user = self.get_user(message)
 		latest_results = []
-		for j in range(1, self.tests_count + 1):
-			for i in user['test_results']:
-				result = None
-				score = i['result']
-				for score_range, outcome in self.get_test_by_id(j)['result'].items():
-					min_score, max_score = map(int, score_range.split('-'))
-					if min_score <= score <= max_score:
-						result = outcome
-						break
-				latest_results.append({
-					"test_name": self.get_test_by_id(j)['test_name'],
-					"total_points": self.get_test_by_id(j)['total_points'],
-					"score": score,
-					"result": result 
-					})
+		for i in user['test_results']:
+			for j in range(1, self.tests_count + 1):
+				if i['_id'] == j:
+					result = None
+					score = i['result']
+					test = self.get_test_by_id(j)
+					for score_range, outcome in test['result'].items():
+						min_score, max_score = map(int, score_range.split('-'))
+						if min_score <= score <= max_score:
+							result = outcome
+							break
+					latest_results.append({
+						"test_name": test['test_name'],
+						"total_points": test['total_points'],
+						"score": score,
+						"result": result 
+						})
 
 
 		return latest_results

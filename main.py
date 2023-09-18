@@ -88,7 +88,7 @@ async def answer_question(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if 'user_answers' not in context.user_data:
         context.user_data['user_answers'] = []
 
-    context.user_data['user_answers'].append({ 'question_id': data['question_index'], 'answer_id': data['answer_index'] })
+    context.user_data['user_answers'].append({ 'question_id': data['question_id'], 'answer_id': data['question_id'] })
     context.user_data['total_points'] += points
     context.user_data['current_question_index'] += 1
     

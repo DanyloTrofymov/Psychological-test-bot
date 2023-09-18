@@ -8,7 +8,8 @@ load_dotenv()
 db = DataBase()
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Привіт! Я бот, який допоможе тобі пройти психологічний тест.")
+    await update.message.reply_text("Вітаю! Я бот, який допоможе тобі пройти психологічний тест.") 
+
     await test_command(update, context)
 
 async def test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -21,7 +22,7 @@ async def test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("Обери тест:", reply_markup=reply_markup)
+    await update.message.reply_text("Оберіть тест:", reply_markup=reply_markup)
 
 async def select_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -100,7 +101,7 @@ async def finish_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     db.add_test_result(update.callback_query.message, current_test['_id'], total_points)
     
-    await update.callback_query.message.reply_text(f"Ваш результат: {total_points} балів з {current_test['total_points']}.\n{result}.")
+    await update.callback_query.message.reply_text(f"Ваш результат: {total_points} балів з {current_test['total_points']}.\n{result}\n\nПримітка. Результати психологічного тестування надають загальну оцінку вашого стану. Для точної перевірки необхідна особиста консультація зі спеціалістом у сфері психічного здоровʼя")
     
     clear_context(context)
     

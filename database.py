@@ -38,7 +38,7 @@ class DataBase:
 	def get_test_by_id(self, _id):
 		return self.tests.find_one({"_id": _id})
 
-	def add_test_result(self, message, _id, result):
+	def add_test_result(self, message, _id, result, answers):
 		test = self.users.find_one({"_id": message.chat.id, "test_results._id": _id})
 
 		if test is None:
@@ -56,7 +56,8 @@ class DataBase:
 		self.results.insert_one({
 				"test_id": _id,
 				"result": result,
-				"date": date.today().strftime("%Y.%m.%d")
+				"date": date.today().strftime("%Y.%m.%d"),
+				"answers": answers,
 			})
 		
 

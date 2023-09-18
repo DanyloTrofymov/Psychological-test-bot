@@ -8,7 +8,7 @@ load_dotenv()
 db = DataBase()
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Привіт! Я бот, який допоможе тобі пройти психологічний тест.") 
+    await update.message.reply_text("Вітаю! Я бот, який допоможе тобі пройти психологічний тест.") 
 
     await test_command(update, context)
 
@@ -22,7 +22,7 @@ async def test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("Обери тест:", reply_markup=reply_markup)
+    await update.message.reply_text("Оберіть тест:", reply_markup=reply_markup)
 
 async def select_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query

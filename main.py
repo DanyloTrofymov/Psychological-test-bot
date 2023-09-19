@@ -11,7 +11,8 @@ db = DataBase()
 menuKeyboard = ReplyKeyboardMarkup(
     keyboard=[
         ["Обрати тест"],
-        ["Подивитись результати"]
+        ["Подивитись результати"],
+        ["Психологічна допомога"]
     ],
     resize_keyboard=True
 )
@@ -24,7 +25,7 @@ testKeyboard = ReplyKeyboardMarkup(
 )
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Вітаю! Я бот, який допоможе тобі пройти психологічний тест.", reply_markup=menuKeyboard) 
+    await update.message.reply_text("Вітаю! Я бот, який допоможе вам пройти психологічні тести.", reply_markup=menuKeyboard) 
 
     await test_command(update, context)
 
@@ -136,6 +137,14 @@ async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.edit_reply_markup(reply_markup=None)
     await update.message.reply_text("Тест скаcовано.", reply_markup=menuKeyboard)
 
+async def contacts_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    clear_context(context)
+    contacts = db.get_contacts()
+    text = "Контакти безкоштовної психологічної допомоги:\n\n"
+    for contact in contacts:
+        text += f"{contact['name']} - {contact['time']} \n{contact['number']}\n\n"
+    await update.message.reply_text(text, reply_markup=menuKeyboard)
+
 async def handle_response(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.text == 'Обрати тест':
         await test_command(update, context)
@@ -143,6 +152,8 @@ async def handle_response(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await results_command(update, context)
     elif update.message.text == 'Скасувати тест':
         await cancel_command(update, context)
+    elif update.message.text == 'Психологічна допомога':
+        await contacts_command(update, context)
     else:
         await update.message.reply_text('На жаль, я не зрозумів вашу команду.')
 

@@ -12,6 +12,7 @@ class DataBase:
 		self.users = self.db["Users"]
 		self.tests = self.db["Tests"]
 		self.results = self.db["Results"]
+		self.contacts = self.db["Contacts"]
 		self.tests_count = len(list(self.tests.find({})))
 		
 	def get_user(self, message):
@@ -106,3 +107,5 @@ class DataBase:
 
 		return latest_results
 	
+	def get_contacts(self):
+		return self.contacts.find({})

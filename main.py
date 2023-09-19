@@ -1,36 +1,22 @@
 import os
 from dotenv import load_dotenv
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, filters, ContextTypes, MessageHandler, CallbackQueryHandler
 from telegram.constants import ParseMode
 from database import DataBase
+from utils import Keyboards, Actions
 import json
 load_dotenv()
 db = DataBase()
 
-menuKeyboard = ReplyKeyboardMarkup(
-    keyboard=[
-        ["Обрати тест"],
-        ["Подивитись результати"],
-        ["Психологічна допомога"]
-    ],
-    resize_keyboard=True
-)
-
-testKeyboard = ReplyKeyboardMarkup(
-    keyboard=[
-        ["Скасувати тест"],
-    ],
-    resize_keyboard=True
-)
-
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Вітаю! Я бот, який допоможе вам пройти психологічні тести.", reply_markup=menuKeyboard) 
+    await update.message.reply_text("Вітаю! Я бот, який допоможе вам пройти психологічні тести.", reply_markup=Keyboards.menuKeyboard) 
 
     await test_command(update, context)
 
 async def test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     clear_context(context)
+    context.user_data['action'] = Actions.TEST
     tests = db.get_all_tests()
 
     inlineKeyboard = [
@@ -49,13 +35,14 @@ async def select_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['current_test'] = db.get_test_by_id(test_id)
     await query.delete_message()
     
-    await query.message.reply_text(text=f"Ви обрали {context.user_data['current_test']['test_name']}.", parse_mode=ParseMode.MARKDOWN, reply_markup=testKeyboard)
+    await query.message.reply_text(text=f"Ви обрали {context.user_data['current_test']['test_name']}.", parse_mode=ParseMode.MARKDOWN, reply_markup=Keyboards.testKeyboard)
 
     await ask_question(update, context)
     
 
 async def ask_question(update: Update, context: ContextTypes.DEFAULT_TYPE):
     current_test = context.user_data['current_test']
+    context.user_data['action'] = Actions.QUESTION
     
     if 'current_question_index' not in context.user_data:
         context.user_data['current_question_index'] = 0
@@ -126,7 +113,7 @@ async def finish_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     db.add_test_result(update.callback_query.message, current_test['_id'], total_points, answers)
     
-    await update.callback_query.message.reply_text(f"Ваш результат: {total_points} балів з {current_test['total_points']}.\n{result}\n\n_Примітка.\nРезультати психологічного тестування надають загальну оцінку вашого стану. Для точної перевірки необхідна особиста консультація зі спеціалістом у сфері психічного здоровʼя_", parse_mode=ParseMode.MARKDOWN, reply_markup=menuKeyboard)
+    await update.callback_query.message.reply_text(f"Ваш результат: {total_points} балів з {current_test['total_points']}.\n{result}\n\n_Примітка.\nРезультати психологічного тестування надають загальну оцінку вашого стану. Для точної перевірки необхідна особиста консультація зі спеціалістом у сфері психічного здоровʼя_", parse_mode=ParseMode.MARKDOWN, reply_markup=Keyboards.menuKeyboard)
     
     clear_context(context)
     
@@ -135,15 +122,35 @@ async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     clear_context(context)
     if(update.message.reply_markup is not None):
         await update.message.edit_reply_markup(reply_markup=None)
-    await update.message.reply_text("Тест скаcовано.", reply_markup=menuKeyboard)
+    await update.message.reply_text("Тест скаcовано.", reply_markup=Keyboards.menuKeyboard)
 
 async def contacts_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     clear_context(context)
-    contacts = db.get_contacts()
+    contacts = db.get_all_contacts()
     text = "Контакти безкоштовної психологічної допомоги:\n\n"
     for contact in contacts:
         text += f"{contact['name']} - {contact['time']} \n{contact['number']}\n\n"
-    await update.message.reply_text(text, reply_markup=menuKeyboard)
+    await update.message.reply_text(text, reply_markup=Keyboards.menuKeyboard)
+
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    clear_context(context)
+    context.user_data['action'] = Actions.HELP
+    problems = db.get_all_problems()
+    inlineKeyboard = [
+        [InlineKeyboardButton(problem['name'], callback_data=problem['_id'])]
+        for problem in problems
+    ]
+    reply_markup = InlineKeyboardMarkup(inlineKeyboard)
+    await update.message.reply_text("Оберіть, що вас турбує:", reply_markup=reply_markup)
+
+async def select_problem(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    problem_id = int(query.data)
+    problem = db.get_problem_by_id(problem_id)
+    await query.message.reply_text(text=f"{problem['name']}.\n {problem['solution']} [Читати детільшіне в статті]({problem['url']})", parse_mode=ParseMode.MARKDOWN, reply_markup=Keyboards.menuKeyboard)
+
 
 async def handle_response(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.text == 'Обрати тест':
@@ -152,27 +159,32 @@ async def handle_response(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await results_command(update, context)
     elif update.message.text == 'Скасувати тест':
         await cancel_command(update, context)
+    elif update.message.text == 'Що робити, якщо у мене...':
+        await help_command(update, context)
     elif update.message.text == 'Психологічна допомога':
         await contacts_command(update, context)
     else:
         await update.message.reply_text('На жаль, я не зрозумів вашу команду.')
 
 async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if(context.user_data.get('current_test') is not None):
-        await answer_question(update, context)
-    else:
+    action = context.user_data.get('action')
+    if action == Actions.TEST:
         await select_test(update, context)
+    elif action == Actions.QUESTION:
+        await answer_question(update, context)
+    elif action == Actions.HELP:
+        await select_problem(update, context)
 
 async def results_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     latest_results = db.get_latest_test_results(update.message)  
     if latest_results == []:
-        await update.message.reply_text("Ви ще не проходили жодного тесту.", reply_markup=menuKeyboard)
+        await update.message.reply_text("Ви ще не проходили жодного тесту.", reply_markup=Keyboards.menuKeyboard)
         return
     results_message = "Останні результати тестів:\n"
     for result in latest_results:
         results_message += f"_{result['test_name']}:_ {result['score']} балів з {result['total_points']}. {result['result']}\n"
 
-    await update.message.reply_text(results_message, parse_mode=ParseMode.MARKDOWN, reply_markup=menuKeyboard)
+    await update.message.reply_text(results_message, parse_mode=ParseMode.MARKDOWN, reply_markup=Keyboards.menuKeyboard)
 
 
 def error(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -189,6 +201,8 @@ def clear_context(context: ContextTypes.DEFAULT_TYPE):
         del context.user_data['user_answers']
     if 'question_message_id' in context.user_data :
         del context.user_data['question_message_id']
+    if 'action' in context.user_data :
+        del context.user_data['action']
     
 def question_inflection(count):
     last_digit = count % 10

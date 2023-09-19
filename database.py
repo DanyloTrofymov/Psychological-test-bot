@@ -13,6 +13,7 @@ class DataBase:
 		self.tests = self.db["Tests"]
 		self.results = self.db["Results"]
 		self.contacts = self.db["Contacts"]
+		self.problems = self.db["Problems"]
 		self.tests_count = len(list(self.tests.find({})))
 		
 	def get_user(self, message):
@@ -84,28 +85,13 @@ class DataBase:
 						"result": result 
 						})
 					
-	def get_contacts(self, message):
-		user = self.get_user(message)
-		latest_results = []
-		for i in user['test_results']:
-			for j in range(1, self.tests_count + 1):
-				if i['_id'] == j:
-					result = None
-					score = i['result']
-					test = self.get_test_by_id(j)
-					for score_range, outcome in test['result'].items():
-						min_score, max_score = map(int, score_range.split('-'))
-						if min_score <= score <= max_score:
-							result = outcome
-							break
-					latest_results.append({
-						"test_name": test['test_name'],
-						"total_points": test['total_points'],
-						"score": score,
-						"result": result 
-						})
-
 		return latest_results
 	
-	def get_contacts(self):
+	def get_all_contacts(self):
 		return self.contacts.find({})
+	
+	def get_all_problems(self):
+		return self.problems.find({})
+	
+	def get_problem_by_id(self, _id):
+		return self.problems.find_one({"_id": _id})

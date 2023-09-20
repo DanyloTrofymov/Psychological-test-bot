@@ -6,8 +6,10 @@ from telegram.constants import ParseMode
 from database import DataBase
 from utils import Keyboards, Actions
 import json
+import openai
 load_dotenv()
 db = DataBase()
+openai.api_key = os.getenv('OPENAI_API_KEY')
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Вітаю! Я бот, який допоможе вам пройти психологічні тести.", reply_markup=Keyboards.menuKeyboard) 
@@ -35,7 +37,7 @@ async def select_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['current_test'] = db.get_test_by_id(test_id)
     await query.delete_message()
     
-    await query.message.reply_text(text=f"Ви обрали {context.user_data['current_test']['test_name']}.", parse_mode=ParseMode.MARKDOWN, reply_markup=Keyboards.testKeyboard)
+    await query.message.reply_text(text=f"Ви обрали {context.user_data['current_test']['test_name']}.", parse_mode=ParseMode.MARKDOWN, reply_markup=Keyboards.cancelKeyboard)
 
     await ask_question(update, context)
     
@@ -122,7 +124,7 @@ async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     clear_context(context)
     if(update.message.reply_markup is not None):
         await update.message.edit_reply_markup(reply_markup=None)
-    await update.message.reply_text("Тест скаcовано.", reply_markup=Keyboards.menuKeyboard)
+    await update.message.reply_text("Cкаcовано.", reply_markup=Keyboards.menuKeyboard)
 
 async def contacts_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     clear_context(context)
@@ -140,29 +142,54 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton(problem['name'], callback_data=problem['_id'])]
         for problem in problems
     ]
+    inlineKeyboard.append([InlineKeyboardButton('Інше', callback_data='999')])
     reply_markup = InlineKeyboardMarkup(inlineKeyboard)
     await update.message.reply_text("Оберіть, що вас турбує:", reply_markup=reply_markup)
 
 async def select_problem(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()
 
-    problem_id = int(query.data)
-    problem = db.get_problem_by_id(problem_id)
-    await query.message.reply_text(text=f"{problem['name']}.\n {problem['solution']} [Читати детільшіне в статті]({problem['url']})", parse_mode=ParseMode.MARKDOWN, reply_markup=Keyboards.menuKeyboard)
+    question = ""
+    if(context.user_data['action'] == Actions.CHAT):
+        question = update.message.text
+        message = await update.message.reply_text(text=f"Генерую відповідь... Це може зайняти до 30 секунд.")
+        response = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=[{"role": "system", "content": f"Ти - професійний психолог, що надає консультації людям з проблемами. Що робити, якщо мене турбує наступне? {question}"}])
+        await update.get_bot().delete_message(
+                chat_id=message.chat_id,
+                message_id=message.message_id
+            )
+        await update.message.reply_text(text=f"_Дана відповідь підготовлена за допомогою штучного інтелекту та не є професійною рекомендацією._\n\n{response['choices'][0]['message']['content']}", parse_mode=ParseMode.MARKDOWN, reply_markup=Keyboards.menuKeyboard)
+    else:
+        await query.answer()
+        problem_id = int(query.data)
+        if problem_id == 999:
+            await query.delete_message()
+            await query.message.reply_text(text=f"Напишіть, що вас турбує, у чат, а штучний інтелект надасть вам відповідь.", reply_markup=Keyboards.cancelKeyboard)
+            context.user_data['action'] = Actions.CHAT
+            return
+        problem = db.get_problem_by_id(problem_id)
+        question = problem['name']
 
+        await query.message.edit_text(text=f"Генерую відповідь... Це може зайняти до 30 секунд.")
+    
+        response = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=[{"role": "system", "content": f"Ти - професійний психолог, що надає консультації людям з проблемами. Що робити, якщо мене турбує наступне? {question}"}])
+        await query.delete_message()
+
+        await query.message.reply_text(text=f"_Дана відповідь підготовлена за допомогою штучного інтелекту та не є професійною рекомендацією._\n\n {response['choices'][0]['message']['content']}", parse_mode=ParseMode.MARKDOWN)
 
 async def handle_response(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.text == 'Обрати тест':
         await test_command(update, context)
     elif update.message.text == 'Подивитись результати':
         await results_command(update, context)
-    elif update.message.text == 'Скасувати тест':
+    elif update.message.text == 'Скасувати':
         await cancel_command(update, context)
     elif update.message.text == 'Що робити, якщо у мене...':
         await help_command(update, context)
     elif update.message.text == 'Психологічна допомога':
         await contacts_command(update, context)
+    elif context.user_data.get('action') == Actions.CHAT:
+        await select_problem(update, context)
     else:
         await update.message.reply_text('На жаль, я не зрозумів вашу команду.')
 

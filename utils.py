@@ -11,9 +11,9 @@ class Keyboards():
         resize_keyboard=True
     )
 
-    testKeyboard = ReplyKeyboardMarkup(
+    cancelKeyboard = ReplyKeyboardMarkup(
         keyboard=[
-            ["Скасувати тест"],
+            ["Скасувати"],
         ],
         resize_keyboard=True
     )
@@ -22,3 +22,4 @@ class Actions():
     TEST = "test"
     QUESTION = "question"
     HELP = "help"
+    CHAT = "chat"

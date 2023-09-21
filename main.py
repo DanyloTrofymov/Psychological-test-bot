@@ -13,7 +13,7 @@ openai.api_key = os.getenv('OPENAI_API_KEY')
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Вітаю! Я бот, який допоможе вам пройти психологічні тести.", reply_markup=Keyboards.menuKeyboard) 
-
+    await db.add_user(update.message)
     await test_command(update, context)
 
 async def test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -152,7 +152,7 @@ async def select_problem(update: Update, context: ContextTypes.DEFAULT_TYPE):
     question = ""
     if(context.user_data['action'] == Actions.CHAT):
         question = update.message.text
-        db.add_AIRequest(question)
+        db.add_AIRequest(update.message, question)
         message = await update.message.reply_text(text=f"Генерую відповідь... Це може зайняти до 30 секунд.")
         response = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=[{"role": "system", "content": f"Ти - професійний психолог, що надає консультації людям з проблемами. Що робити, якщо мене турбує наступне? {question}"}])
         await update.get_bot().delete_message(
@@ -173,6 +173,7 @@ async def select_problem(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text(text=f"{problem['solution']} [Читати детальніше про самодопомогу в статті]({problem['url']})", parse_mode=ParseMode.MARKDOWN, reply_markup=Keyboards.menuKeyboard)
 
 async def handle_response(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    db.set_user_last_activity(update.message)
     if update.message.text == 'Обрати тест':
         await test_command(update, context)
     elif update.message.text == 'Подивитись результати':

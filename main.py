@@ -170,7 +170,7 @@ async def select_problem(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         problem = db.get_problem_by_id(problem_id)
         await query.delete_message()
-        await query.message.reply_text(text=f"{problem['name']}.\n {problem['solution']} [Читати детільшіне про самодопомогу в статті]({problem['url']})", parse_mode=ParseMode.MARKDOWN, reply_markup=Keyboards.menuKeyboard)
+        await query.message.reply_text(text=f"{problem['name']}.\n {problem['solution']} [Читати детальніше про самодопомогу в статті]({problem['url']})", parse_mode=ParseMode.MARKDOWN, reply_markup=Keyboards.menuKeyboard)
 
 async def handle_response(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.text == 'Обрати тест':

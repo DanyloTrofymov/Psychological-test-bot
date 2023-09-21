@@ -122,8 +122,14 @@ async def finish_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     clear_context(context)
-    if(update.message.reply_markup is not None):
-        await update.message.edit_reply_markup(reply_markup=None)
+    try:
+        await update.get_bot().edit_message_reply_markup(
+            chat_id=update.message.chat_id,
+            message_id=update.message.message_id-1,
+            reply_markup=None
+        )
+    except:
+        pass
     await update.message.reply_text("Cкаcовано.", reply_markup=Keyboards.menuKeyboard)
 
 async def contacts_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -173,6 +179,14 @@ async def select_problem(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text(text=f"{problem['solution']} [Читати детальніше про самодопомогу в статті]({problem['url']})", parse_mode=ParseMode.MARKDOWN, reply_markup=Keyboards.menuKeyboard)
 
 async def handle_response(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        await update.get_bot().edit_message_reply_markup(
+            chat_id=update.message.chat_id,
+            message_id=update.message.message_id-1,
+            reply_markup=None
+        )
+    except:
+        pass
     db.set_user_last_activity(update.message)
     if update.message.text == 'Обрати тест':
         await test_command(update, context)

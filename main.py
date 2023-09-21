@@ -168,14 +168,8 @@ async def select_problem(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data['action'] = Actions.CHAT
             return
         problem = db.get_problem_by_id(problem_id)
-        question = problem['name']
-
-        await query.message.edit_text(text=f"Генерую відповідь... Це може зайняти до 30 секунд.")
-    
-        response = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=[{"role": "system", "content": f"Ти - професійний психолог, що надає консультації людям з проблемами. Що робити, якщо мене турбує наступне? {question}"}])
         await query.delete_message()
-
-        await query.message.reply_text(text=f"_Дана відповідь підготовлена за допомогою штучного інтелекту та не є професійною рекомендацією._\n\n {response['choices'][0]['message']['content']}", parse_mode=ParseMode.MARKDOWN)
+        await query.message.reply_text(text=f"{problem['name']}.\n {problem['solution']} [Читати детільшіне в статті]({problem['url']})", parse_mode=ParseMode.MARKDOWN, reply_markup=Keyboards.menuKeyboard)
 
 async def handle_response(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.text == 'Обрати тест':

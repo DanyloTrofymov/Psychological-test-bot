@@ -14,6 +14,7 @@ class DataBase:
 		self.results = self.db["Results"]
 		self.contacts = self.db["Contacts"]
 		self.problems = self.db["Problems"]
+		self.requests = self.db["AIRequests"]
 		self.tests_count = len(list(self.tests.find({})))
 		
 	def get_user(self, message):
@@ -95,3 +96,11 @@ class DataBase:
 	
 	def get_problem_by_id(self, _id):
 		return self.problems.find_one({"_id": _id})
+	
+	def add_AIRequest(self, question):
+		request = {
+			"_id": self.requests.count_documents({}) + 1,
+			"request_text": question,
+			"date": date.today().strftime("%Y.%m.%d"),
+		}
+		self.requests.insert_one(request)

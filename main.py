@@ -160,13 +160,31 @@ async def select_problem(update: Update, context: ContextTypes.DEFAULT_TYPE):
         question = update.message.text
         db.add_AIRequest(update.message, question)
         message = await update.message.reply_text(text=f"Генерую відповідь... Це може зайняти до 30 секунд.")
-        response = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=[{"role": "system", "content": f"Ти - професійний психолог, що надає консультації людям з проблемами. Що робити, якщо мене турбує наступне? {question}"}])
+        
+        # Corrected API call and response handling
+        response = openai.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {
+                    "role": "system",
+                    "content": f"Ти - професійний психолог, що надає консультації людям з проблемами. Що робити, якщо мене турбує наступне? {question}"
+                }
+            ]
+        )
+        ai_reply = response.choices[0].message.content
+        
         await update.get_bot().delete_message(
-                chat_id=message.chat_id,
-                message_id=message.message_id
-            )
-        await update.message.reply_text(text=f"_Дана відповідь підготовлена за допомогою штучного інтелекту та не є професійною рекомендацією._\n\n{response['choices'][0]['message']['content']}", parse_mode=ParseMode.MARKDOWN, reply_markup=Keyboards.menuKeyboard)
+            chat_id=message.chat_id,
+            message_id=message.message_id
+        )
+        await update.message.reply_text(
+            text=f"_Дана відповідь підготовлена за допомогою штучного інтелекту та не є професійною рекомендацією._\n\n{ai_reply}",
+            parse_mode=ParseMode.MARKDOWN,
+            reply_markup=Keyboards.menuKeyboard
+        )
     else:
+        # Rest of your code...
+
         await query.answer()
         problem_id = int(query.data)
         if problem_id == 999:

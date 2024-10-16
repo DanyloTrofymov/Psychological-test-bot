@@ -8,6 +8,8 @@ from utils.keyboards import Keyboards, Actions
 import json
 import api.tests as testsApi
 import api.take as takeApi
+import api.commonProblems as commonProblemsApi
+import api.helpingCenters as helpingCentersApi
 import utils.auth as authHelper
 import openai
 load_dotenv()
@@ -152,18 +154,18 @@ async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def contacts_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     clear_context(context)
-    contacts = db.get_all_contacts()
+    contacts = helpingCentersApi.fetch_centers()
     text = "Контакти безкоштовної психологічної допомоги:\n\n"
     for contact in contacts:
-        text += f"{contact['name']} - {contact['time']} \n{contact['number']}\n\n"
+        text += f"{contact['name']} - {contact['workingHours']} \n{contact['phone']}\n\n"
     await update.message.reply_text(text, reply_markup=Keyboards.menuKeyboard)
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     clear_context(context)
     context.user_data['action'] = Actions.HELP
-    problems = db.get_all_problems()
+    problems = commonProblemsApi.fetch_problems()
     inlineKeyboard = [
-        [InlineKeyboardButton(problem['name'], callback_data=problem['_id'])]
+        [InlineKeyboardButton(problem['title'], callback_data=problem['id'])]
         for problem in problems
     ]
     inlineKeyboard.append([InlineKeyboardButton('Інше', callback_data='999')])
@@ -207,9 +209,9 @@ async def select_problem(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.message.reply_text(text=f"Напишіть, що вас турбує, у чат, а штучний інтелект надасть вам відповідь.", reply_markup=Keyboards.cancelKeyboard)
             context.user_data['action'] = Actions.CHAT
             return
-        problem = db.get_problem_by_id(problem_id)
+        problem = commonProblemsApi.fetch_problem_by_id(problem_id)
         await query.delete_message()
-        await query.message.reply_text(text=f"{problem['solution']} [Читати детальніше про самодопомогу в статті]({problem['url']})", parse_mode=ParseMode.MARKDOWN, reply_markup=Keyboards.menuKeyboard)
+        await query.message.reply_text(text=f"{problem['description']} [Читати детальніше про самодопомогу в статті]({problem['url']})", parse_mode=ParseMode.MARKDOWN, reply_markup=Keyboards.menuKeyboard)
 
 async def handle_response(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await authHelper.authorization_helper(update, context)
@@ -221,7 +223,6 @@ async def handle_response(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     except:
         pass
-    db.set_user_last_activity(update.message)
     if update.message.text == 'Обрати тест':
         await test_command(update, context)
     elif update.message.text == 'Подивитись результати':

@@ -4,40 +4,65 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, filters, ContextTypes, MessageHandler, CallbackQueryHandler
 from telegram.constants import ParseMode
 from database import DataBase
-from utils import Keyboards, Actions
+from utils.keyboards import Keyboards, Actions
 import json
+import api.tests as testsApi
+import api.take as takeApi
+import utils.auth as authHelper
 import openai
 load_dotenv()
 db = DataBase()
 openai.api_key = os.getenv('OPENAI_API_KEY')
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await authHelper.authorization_helper(update, context)
     await update.message.reply_text("Вітаю! Я бот, який допоможе вам пройти психологічні тести.", reply_markup=Keyboards.menuKeyboard) 
-    await db.add_user(update.message)
     await test_command(update, context)
 
 async def test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     clear_context(context)
     context.user_data['action'] = Actions.TEST
-    tests = db.get_all_tests()
+
+    page_size = 5  
+    page_number = context.user_data.get('page_number', 0) 
+
+    tests = testsApi.fetch_tests({'page': page_number, 'pageSize': page_size})
+
+    start_index = page_number * page_size
+    end_index = start_index + page_size
 
     inlineKeyboard = [
-        [InlineKeyboardButton(f'{test["test_name"]}({question_inflection(test["questions"].__len__())})', callback_data=str(test['_id']))]
-        for test in tests
+        [InlineKeyboardButton(f'{test["title"]}({question_inflection(test["_count"]["questions"])})', callback_data=str(test['id']))]
+        for test in tests["content"]
     ]
 
+    # Add navigation buttons
+    navigation_buttons = []
+    if page_number > 0:
+        navigation_buttons.append(InlineKeyboardButton("⬅️", callback_data='prev_page'))
+    if end_index < tests['totalElements']:
+        navigation_buttons.append(InlineKeyboardButton("➡️", callback_data='next_page'))
+    if navigation_buttons:
+        inlineKeyboard.append(navigation_buttons)
+
     reply_markup = InlineKeyboardMarkup(inlineKeyboard)
-    await update.message.reply_text("Оберіть тест", reply_markup=reply_markup)
+    
+    if update.callback_query:
+        await update.callback_query.edit_message_text("Оберіть тест", reply_markup=reply_markup)
+    else:
+        await update.message.reply_text("Оберіть тест", reply_markup=reply_markup)
+
+
 
 async def select_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
     test_id = int(query.data)
-    context.user_data['current_test'] = db.get_test_by_id(test_id)
+    context.user_data['current_test'] = testsApi.fetch_tests_by_id(test_id, context.user_data['auth'])
     await query.delete_message()
     
-    await query.message.reply_text(text=f"Ви обрали {context.user_data['current_test']['test_name']}.", parse_mode=ParseMode.MARKDOWN, reply_markup=Keyboards.cancelKeyboard)
+    await query.message.reply_text(text=f"Ви обрали {context.user_data['current_test']['title']}.\n{context.user_data['current_test']['subtitle']}", parse_mode=ParseMode.MARKDOWN, reply_markup=Keyboards.cancelKeyboard)
 
     await ask_question(update, context)
     
@@ -58,13 +83,13 @@ async def ask_question(update: Update, context: ContextTypes.DEFAULT_TYPE):
     question = current_test['questions'][question_index]
     
     inlineKeyboard = [[
-        InlineKeyboardButton(index, callback_data='{' + f'"points":{answer["points"]}, "question_id":{question_index + 1}, "answer_id":{answer["answer_id"]}' + '}')
+        InlineKeyboardButton(index, callback_data='{' + f'"points":{answer["score"]}, "questionId":{question_index + 1}, "answerId":{answer["id"]}' + '}')
         for index, answer in enumerate(question['answers'], start=1)   
     ]]    
     
-    text = f"Запитання {question_index + 1} з {current_test['questions'].__len__()}. {question['question_text']} Оберіть вашу відповідь:"
+    text = f"Запитання {question_index + 1} з {current_test['questions'].__len__()}. {question['title']} \n{question['subtitle'] if 'subtitle' in question else ''}\nОберіть вашу відповідь:"
     for index, answer in enumerate(question['answers'], start=1):
-        text += f"\n{index}. {answer['answer_text']}"
+        text += f"\n{index}. {answer['title']}"
 
     reply_markup = InlineKeyboardMarkup(inlineKeyboard)
 
@@ -94,7 +119,7 @@ async def answer_question(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if 'user_answers' not in context.user_data:
         context.user_data['user_answers'] = []
 
-    context.user_data['user_answers'].append({ 'question_id': data['question_id'], 'answer_id': data['question_id'] })
+    context.user_data['user_answers'].append({ 'questionId': data['questionId'], 'answerId': data['questionId'] })
     context.user_data['total_points'] += points
     context.user_data['current_question_index'] += 1
     
@@ -106,16 +131,9 @@ async def finish_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
     current_test = context.user_data['current_test']
     answers = context.user_data['user_answers']
 
-    result = None
-    for score_range, outcome in current_test['result'].items():
-        min_score, max_score = map(int, score_range.split('-'))
-        if min_score <= total_points <= max_score:
-            result = outcome
-            break
-    
-    db.add_test_result(update.callback_query.message, current_test['_id'], total_points, answers)
-    
-    await update.callback_query.message.reply_text(f"Ваш результат: {total_points} балів з {current_test['total_points']}.\n{result}\n\n_Примітка.\nРезультати психологічного тестування надають загальну оцінку вашого стану. Для точної перевірки необхідна особиста консультація зі спеціалістом у сфері психічного здоровʼя_", parse_mode=ParseMode.MARKDOWN, reply_markup=Keyboards.menuKeyboard)
+    takeApi.create_take({'quizId': current_test['id'], 'answers': answers}, context.user_data['auth'])
+
+    await update.callback_query.message.reply_text(f"Ваш результат: {total_points} балів з {current_test['maxScore']}.\n{current_test['summary']}\n\n_Примітка.\nРезультати психологічного тестування надають загальну оцінку вашого стану. Для точної перевірки необхідна особиста консультація зі спеціалістом у сфері психічного здоровʼя_", parse_mode=ParseMode.MARKDOWN, reply_markup=Keyboards.menuKeyboard)
     
     clear_context(context)
     
@@ -161,7 +179,6 @@ async def select_problem(update: Update, context: ContextTypes.DEFAULT_TYPE):
         db.add_AIRequest(update.message, question)
         message = await update.message.reply_text(text=f"Генерую відповідь... Це може зайняти до 30 секунд.")
         
-        # Corrected API call and response handling
         response = openai.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
@@ -183,8 +200,6 @@ async def select_problem(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=Keyboards.menuKeyboard
         )
     else:
-        # Rest of your code...
-
         await query.answer()
         problem_id = int(query.data)
         if problem_id == 999:
@@ -197,6 +212,7 @@ async def select_problem(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text(text=f"{problem['solution']} [Читати детальніше про самодопомогу в статті]({problem['url']})", parse_mode=ParseMode.MARKDOWN, reply_markup=Keyboards.menuKeyboard)
 
 async def handle_response(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await authHelper.authorization_helper(update, context)
     try:
         await update.get_bot().edit_message_reply_markup(
             chat_id=update.message.chat_id,
@@ -222,6 +238,19 @@ async def handle_response(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text('На жаль, я не зрозумів вашу команду.')
 
 async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await authHelper.authorization_helper(update, context)
+    query = update.callback_query
+    await query.answer()
+    # Handle pagination
+    if query.data == 'prev_page':
+        context.user_data['page_number'] = context.user_data.get('page_number', 0) - 1
+        await test_command(update, context)
+        return
+    elif query.data == 'next_page':
+        context.user_data['page_number'] = context.user_data.get('page_number', 0) + 1
+        await test_command(update, context)
+        return
+
     action = context.user_data.get('action')
     if action == Actions.TEST:
         await select_test(update, context)
@@ -291,6 +320,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 

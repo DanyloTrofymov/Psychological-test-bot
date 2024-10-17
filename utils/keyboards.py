@@ -23,3 +23,4 @@ class Actions():
     QUESTION = "question"
     HELP = "help"
     CHAT = "chat"
+    RESULTS = "results"

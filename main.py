@@ -1,20 +1,19 @@
 import os
+
 from dotenv import load_dotenv
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, filters, ContextTypes, MessageHandler, CallbackQueryHandler
 from telegram.constants import ParseMode
-from database import DataBase
 from utils.keyboards import Keyboards, Actions
+from utils.AIChatHandler import AIChatHandler
 import json
 import api.tests as testsApi
 import api.take as takeApi
 import api.commonProblems as commonProblemsApi
 import api.helpingCenters as helpingCentersApi
 import utils.auth as authHelper
-import openai
+
 load_dotenv()
-db = DataBase()
-openai.api_key = os.getenv('OPENAI_API_KEY')
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await authHelper.authorization_helper(update, context)
@@ -176,38 +175,28 @@ async def select_problem(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
 
     question = ""
-    if(context.user_data['action'] == Actions.CHAT):
-        question = update.message.text
-        db.add_AIRequest(update.message, question)
-        message = await update.message.reply_text(text=f"Генерую відповідь... Це може зайняти до 30 секунд.")
-        
-        response = openai.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {
-                    "role": "system",
-                    "content": f"Ти - професійний психолог, що надає консультації людям з проблемами. Що робити, якщо мене турбує наступне? {question}"
-                }
-            ]
-        )
-        ai_reply = response.choices[0].message.content
-        
-        await update.get_bot().delete_message(
-            chat_id=message.chat_id,
-            message_id=message.message_id
-        )
-        await update.message.reply_text(
-            text=f"_Дана відповідь підготовлена за допомогою штучного інтелекту та не є професійною рекомендацією._\n\n{ai_reply}",
-            parse_mode=ParseMode.MARKDOWN,
-            reply_markup=Keyboards.menuKeyboard
-        )
+    if context.user_data['action'] == Actions.CHAT: 
+      question = update.message.text
+      # Send an initial message to the user
+      message = await update.message.reply_text(text="Генерую відповідь... Це може зайняти до 30 секунд.", parse_mode=ParseMode.MARKDOWN)
+      # Initialize the AIChatHandler
+      if 'handler' in context.user_data:
+          handler = context.user_data['handler']
+          handler.context = context
+          handler.message = message
+          await handler.send_message(question)
+          return
     else:
         await query.answer()
         problem_id = int(query.data)
         if problem_id == 999:
             await query.delete_message()
-            await query.message.reply_text(text=f"Напишіть, що вас турбує, у чат, а штучний інтелект надасть вам відповідь.", reply_markup=Keyboards.cancelKeyboard)
+            message = await query.message.reply_text(text=f"Напишіть, що вас турбує, у чат, а штучний інтелект надасть вам відповідь.", reply_markup=Keyboards.cancelKeyboard)
             context.user_data['action'] = Actions.CHAT
+            handler = AIChatHandler(context, message)
+            context.user_data['handler'] = handler
+            
+            await handler.start(context.user_data['auth'])
             return
         problem = commonProblemsApi.fetch_problem_by_id(problem_id)
         await query.delete_message()
@@ -242,7 +231,8 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
     await authHelper.authorization_helper(update, context)
     query = update.callback_query
     await query.answer()
-    # Handle pagination
+    
+    # Handle pagination for test selection
     if query.data == 'prev_page':
         context.user_data['page_number'] = context.user_data.get('page_number', 0) - 1
         await test_command(update, context)
@@ -252,6 +242,16 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
         await test_command(update, context)
         return
 
+    # Handle pagination for results
+    if query.data == 'prev_results_page':
+        context.user_data['page_number'] = context.user_data.get('page_number', 0) - 1
+        await results_command(update, context)
+        return
+    elif query.data == 'next_results_page':
+        context.user_data['page_number'] = context.user_data.get('page_number', 0) + 1
+        await results_command(update, context)
+        return
+
     action = context.user_data.get('action')
     if action == Actions.TEST:
         await select_test(update, context)
@@ -259,18 +259,51 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
         await answer_question(update, context)
     elif action == Actions.HELP:
         await select_problem(update, context)
+    elif action == Actions.RESULTS:
+        # Fetch the latest take for the selected quiz
+        quiz_id = int(query.data)
+        latest_take = takeApi.fetch_latest_take_by_quiz_id(quiz_id, context.user_data['auth'])
+        print(latest_take)
+        score = 'answers' in latest_take and sum([answer['answer']['score'] for answer in latest_take['answers']]) or 0
+        if latest_take:
+            result_message = f"Ваш останній результат для тесту \"{latest_take['quiz']['title']}\": {score} балів з {latest_take['quiz']['maxScore']}.\n{latest_take['quiz']['summary']}"
+            await query.message.reply_text(result_message, parse_mode=ParseMode.MARKDOWN, reply_markup=Keyboards.menuKeyboard)
+        else:
+            await query.message.reply_text("Результати для цього тесту не знайдено.", reply_markup=Keyboards.menuKeyboard)
 
 async def results_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    latest_results = db.get_latest_test_results(update.message)  
-    if latest_results == []:
-        await update.message.reply_text("Ви ще не проходили жодного тесту.", reply_markup=Keyboards.menuKeyboard)
+    clear_context(context)
+    await authHelper.authorization_helper(update, context)
+    context.user_data['action'] = Actions.RESULTS
+
+    page_size = 5  
+    page_number = context.user_data.get('page_number', 0) 
+
+    quizzes = testsApi.fetch_my_unique_tests(context.user_data['auth'], {'page': page_number, 'pageSize': page_size})
+
+    start_index = page_number * page_size
+    end_index = start_index + page_size
+
+    if len(quizzes) == 0:
+        await update.message.reply_text("Ви ще не проходили тест.", reply_markup=Keyboards.menuKeyboard)
         return
-    results_message = "Останні результати тестів:\n"
-    for result in latest_results:
-        results_message += f"_{result['test_name']}:_ {result['score']} балів з {result['total_points']}. {result['result']}\n"
+    inlineKeyboard = [
+        [InlineKeyboardButton(quiz['title'], callback_data=str(quiz['id']))]
+        for quiz in quizzes['content']
+    ]
 
-    await update.message.reply_text(results_message, parse_mode=ParseMode.MARKDOWN, reply_markup=Keyboards.menuKeyboard)
+    # Add navigation buttons
+    navigation_buttons = []
+    if page_number > 0:
+        navigation_buttons.append(InlineKeyboardButton("⬅️", callback_data='prev_results_page'))
+    if end_index < quizzes['totalElements']:
+        navigation_buttons.append(InlineKeyboardButton("➡️", callback_data='next_results_page'))
+    if navigation_buttons:
+        inlineKeyboard.append(navigation_buttons)
 
+    reply_markup = InlineKeyboardMarkup(inlineKeyboard)
+    
+    await update.message.reply_text("Оберіть тест, щоб побачити результати:", reply_markup=reply_markup)
 
 def error(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f'Update {update} caused error {context.error}')
@@ -288,6 +321,10 @@ def clear_context(context: ContextTypes.DEFAULT_TYPE):
         del context.user_data['question_message_id']
     if 'action' in context.user_data :
         del context.user_data['action']
+    if 'handler' in context.user_data:
+        del context.user_data['handler']
+    if 'page_number' in context.user_data:
+        del context.user_data['page_number']
     
 def question_inflection(count):
     last_digit = count % 10
@@ -321,8 +358,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
-
-
-

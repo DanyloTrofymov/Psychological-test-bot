@@ -1,12 +1,10 @@
-import os
 import time
 
 from telegram import Update
 from telegram.ext import ContextTypes
 from jwt import decode, ExpiredSignatureError, InvalidTokenError
 import api.auth as auth
-API_URL = os.getenv("API_URL")
-BOT_TOKEN = os.getenv("BOT_TOKEN")
+
 
 async def authorization_helper(update: Update, context: ContextTypes.DEFAULT_TYPE):
     isValid = False 

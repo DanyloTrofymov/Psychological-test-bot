@@ -1,6 +1,7 @@
 import os
 import requests
-
+from dotenv import load_dotenv
+load_dotenv()
 API_URL = os.getenv("API_URL")
 
 def create_take(requestBody: dict, token: str):
@@ -14,3 +15,7 @@ def create_take(requestBody: dict, token: str):
     except requests.exceptions.RequestException as e:
         print(e)
 
+def fetch_latest_take_by_quiz_id(id: str, token: str):
+    response = requests.get(f"{API_URL}/take/quiz/{id}/latest", headers={"Authorization": f"Bearer {token}"})
+    response.raise_for_status() 
+    return response.json()

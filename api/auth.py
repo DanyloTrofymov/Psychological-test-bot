@@ -21,7 +21,7 @@ async def sign_in(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user.is_bot is False:
         photos = await context.bot.get_user_profile_photos(user.id)
         if photos.total_count > 0:
-            file = context.bot.get_file(photos.photos[0][-1].file_id)
+            file = await context.bot.get_file(photos.photos[0][-1].file_id)
             photo_url = file.file_path  # This is a Telegram file URL
 
     # Prepare user data
@@ -48,7 +48,6 @@ async def sign_in(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['auth'] = response.json()['accessToken']
         return response.json()
     except requests.exceptions.RequestException as e:
-        await update.message.reply_text('Authorization failed. Please try again later.')
         print(f'Error sending data to backend: {e}')
 
 def refresh_token(refresh_token: str) -> dict:
